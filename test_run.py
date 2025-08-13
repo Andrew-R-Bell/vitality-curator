@@ -1,10 +1,10 @@
-import os
+# test_run.py
 from dotenv import load_dotenv
-from bot import run_once
-
-# Load local environment variables
 load_dotenv()
 
-print("[Test] Running a single bot post simulation...")
-run_once()
-print("[Test] Done. Check output above for any errors.")
+from bot import run_once
+
+if __name__ == "__main__":
+    print("[Test Run] Starting dry-run test of Health & Longevity Bot")
+    run_once()
+    print("[Test Run] Finished")
