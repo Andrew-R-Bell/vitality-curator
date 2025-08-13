@@ -1,0 +1,14 @@
+# Health & Longevity Daily Curator Bot
+  
+  A **Railway-ready** Python bot that posts **one daily item** on health & longevity, mixing:
+  
+  - Fresh **news articles** (via NewsAPI)
+  - Viral **Reddit posts** from longevity/health subs (via PRAW)
+  
+  It automatically picks an image (article image → Reddit preview → Unsplash → generates a fallback image), formats a caption, and posts to **Twitter/X, Instagram, Facebook, and Bluesky**. It also filters out content based on a **domain/keyword blocklist** (e.g., no “miracle cure” stories).
+  
+  > Note: If you see 'Import "posting" could not be resolved' in bot.py, ensure all Python files are in the same directory, or add an empty `__init__.py` file to the folder. Alternatively, use relative imports like `from . import posting` if using a package structure.
+  
+  This updated version now supports loading environment variables from a local `.env` file using `python-dotenv`, making it easier to test locally while keeping your keys secure.
+
+---
