@@ -4,10 +4,13 @@ import random
 import traceback
 from sources import fetch_news_article, fetch_reddit_post
 from imaging import download_image_to_path, get_first_valid_image_url_or_none, generate_fallback_image
-from posting import post_to_twitter
+from posting import post_to_twitter, post_to_instagram, post_to_facebook, post_to_bluesky
 
 POST_MODE = os.getenv("POST_MODE", "auto").lower()  # auto/news/reddit
 HASHTAGS = "#Longevity #Health #Wellness #Biohacking"
+DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
+BLOCKLIST_DOMAINS = set(os.getenv("BLOCKLIST_DOMAINS", "").split(","))
+BLOCKLIST_KEYWORDS = set(os.getenv("BLOCKLIST_KEYWORDS", "").lower().split(","))
 
 def trim_caption_for_twitter(text: str, url: str = "") -> str:
     max_len = 280
@@ -17,6 +20,14 @@ def trim_caption_for_twitter(text: str, url: str = "") -> str:
     if len(text) > body_budget:
         text = text[: body_budget - 1].rstrip() + "…"
     return f"{text} {url}".strip()
+
+def is_blocked(text: str, url: str) -> bool:
+    text_lower = text.lower()
+    if any(domain in url for domain in BLOCKLIST_DOMAINS if domain):
+        return True
+    if any(keyword in text_lower for keyword in BLOCKLIST_KEYWORDS if keyword):
+        return True
+    return False
 
 def build_caption_from_news(article: dict) -> str:
     title = article.get("title") or "Interesting health article"
@@ -39,7 +50,7 @@ def choose_item():
 
     if mode == "news":
         article = fetch_news_article()
-        if article:
+        if article and not is_blocked(article.get("title", ""), article.get("url", "")):
             return {
                 "type": "news",
                 "caption": build_caption_from_news(article),
@@ -49,7 +60,7 @@ def choose_item():
                 "title": article.get("title", ""),
             }
     post = fetch_reddit_post()
-    if post:
+    if post and not is_blocked(post.get("title", ""), post.get("url", "")):
         return {
             "type": "reddit",
             "caption": build_caption_from_reddit(post),
@@ -65,23 +76,34 @@ def run_once():
         print("[Bot] Selecting item…")
         item = choose_item()
         if not item:
-            print("[Bot] No content found today.")
+            print("[Bot] No suitable content found today.")
             return
 
         image_path = "image.jpg"
         ok = False
         if item.get("image_url"):
             ok = download_image_to_path(item["image_url"], image_path)
-
         if not ok:
             ok = download_image_to_path(None, image_path, query=item.get("fallback_query", "health"))
-
         if not ok:
             generate_fallback_image(item.get("title", "Health & Longevity"), image_path)
 
-        print("[Bot] Posting to Twitter/X…")
-        post_to_twitter(item["caption"], image_path)
+        if DRY_RUN:
+            print(f"[Dry Run] Caption: {item['caption']}")
+            print(f"[Dry Run] Image path: {image_path}")
+            print(f"[Dry Run] Would post to: Twitter/X, Instagram, Facebook, Bluesky")
+        else:
+            print("[Bot] Posting to Twitter/X…")
+            post_to_twitter(item["caption"], image_path)
+            print("[Bot] Posting to Instagram…")
+            post_to_instagram(item["caption"], image_path)
+            print("[Bot] Posting to Facebook…")
+            post_to_facebook(item["caption"], image_path)
+            print("[Bot] Posting to Bluesky…")
+            post_to_bluesky(item["caption"], image_path)
+
         print("[Bot] Done.")
+
     except Exception as e:
         print("[Bot][ERROR]", e)
         traceback.print_exc()
