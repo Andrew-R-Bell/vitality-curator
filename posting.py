@@ -17,14 +17,27 @@ def post_to_twitter(caption: str, image_path: str):
         print(f"[Dry Run] Would post to Twitter/X with caption: {caption}")
         return
     try:
+        # Initialize both v1.1 (for media) and v2 (for posting)
         auth = tweepy.OAuth1UserHandler(
             os.getenv("TWITTER_API_KEY"),
             os.getenv("TWITTER_API_SECRET"),
             os.getenv("TWITTER_ACCESS_TOKEN"),
             os.getenv("TWITTER_ACCESS_SECRET")
         )
-        api = tweepy.API(auth)
-        api.update_status_with_media(status=caption, filename=image_path)
+        api_v1 = tweepy.API(auth)
+        
+        # Upload media using v1.1
+        media = api_v1.media_upload(filename=image_path)
+        
+        # Post using v2
+        client = tweepy.Client(
+            consumer_key=os.getenv("TWITTER_API_KEY"),
+            consumer_secret=os.getenv("TWITTER_API_SECRET"),
+            access_token=os.getenv("TWITTER_ACCESS_TOKEN"),
+            access_token_secret=os.getenv("TWITTER_ACCESS_SECRET")
+        )
+        
+        client.create_tweet(text=caption, media_ids=[media.media_id])
         print("[Twitter/X] Posted successfully.")
     except Exception as e:
         print("[Twitter/X][ERROR]", e)
