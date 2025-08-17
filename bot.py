@@ -92,8 +92,7 @@ def choose_item():
 
     if mode == "news":
         article = fetch_news_article()
-        if article and not is_blocked(article.get("title", ""), article.get("url", "")):
-        if article and not is_blocked(article.get("title", ""), article.get("url", "")):
+        if article and not is_blocked(article.get("title", ""), article.get("url", "")):        
             return {
                 "type": "news",
                 "caption": build_caption_from_news(article),
@@ -103,8 +102,7 @@ def choose_item():
                 "title": article.get("title", ""),
             }
     post = fetch_reddit_post()
-    if post and not is_blocked(post.get("title", ""), post.get("url", "")):
-    if post and not is_blocked(post.get("title", ""), post.get("url", "")):
+    if post and not is_blocked(post.get("title", ""), post.get("url", "")):    
         return {
             "type": "reddit",
             "caption": build_caption_from_reddit(post),
@@ -187,8 +185,7 @@ def run_once():
 
         execution_time = (datetime.now() - start_time).total_seconds()
         logger.info(f"[Bot] Completed in {execution_time:.2f}s. Posted to {success_count}/4 platforms.")
-
-            logger.info("[Bot] Generated fallback text image")
+        logger.info("[Bot] Generated fallback text image")
 
         if DRY_RUN:
             logger.info(f"[Dry Run] Caption: {item['caption']}")
