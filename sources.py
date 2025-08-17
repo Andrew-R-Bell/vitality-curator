@@ -1,8 +1,11 @@
-# sources.py
+# sources.py - Enhanced with retry logic
+
 import os
 import random
 import requests
 import praw
+import time
+from functools import wraps
 
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
@@ -13,6 +16,24 @@ NEWS_QUERY = "(longevity OR \"healthspan\" OR \"anti-aging\" OR \"healthy aging\
 NEWS_SOURCES_ENDPOINT = "https://newsapi.org/v2/everything"
 REDDIT_SUBS = ["Longevity","Nutrition","Biohackers","HealthyFood","Fitness"]
 
+def retry_on_failure(max_retries=3, delay=5):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        logger.error(f"{func.__name__} failed after {max_retries} attempts: {e}")
+                        return None
+                    logger.warning(f"{func.__name__} attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
+                    time.sleep(delay * (attempt + 1))  # Exponential backoff
+            return None
+        return wrapper
+    return decorator
+
+@retry_on_failure(max_retries=3, delay=2)
 def fetch_news_article() -> dict | None:
     if not NEWSAPI_KEY:
         return None
@@ -32,6 +53,7 @@ def _reddit_client():
         return None
     return praw.Reddit(client_id=REDDIT_CLIENT_ID,client_secret=REDDIT_CLIENT_SECRET,user_agent=REDDIT_USER_AGENT)
 
+@retry_on_failure(max_retries=2, delay=3)
 def fetch_reddit_post() -> dict | None:
     reddit = _reddit_client()
     if not reddit:
@@ -56,3 +78,4 @@ def fetch_reddit_post() -> dict | None:
         return random.choice(top) if top else None
     except Exception:
         return None
+    

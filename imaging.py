@@ -1,4 +1,7 @@
 # imaging.py
+import asyncio
+import aiohttp
+from typing import Optional
 import os
 import requests
 from PIL import Image, ImageDraw, ImageFont

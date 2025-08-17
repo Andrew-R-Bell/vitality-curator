@@ -1,7 +1,12 @@
 # bot.py
+
 import os
 import random
 import traceback
+import logging
+import re
+from urllib.parse import urlparse
+from datetime import datetime
 from sources import fetch_news_article, fetch_reddit_post
 from imaging import download_image_to_path, get_first_valid_image_url_or_none, generate_fallback_image
 from posting import post_to_twitter, post_to_instagram, post_to_facebook, post_to_bluesky
@@ -11,6 +16,18 @@ HASHTAGS = "#Longevity #Health #Wellness #Biohacking"
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
 BLOCKLIST_DOMAINS = set(os.getenv("BLOCKLIST_DOMAINS", "").split(","))
 BLOCKLIST_KEYWORDS = set(os.getenv("BLOCKLIST_KEYWORDS", "").lower().split(","))
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('bot.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 
 def trim_caption_for_twitter(text: str, url: str = "") -> str:
     max_len = 280
@@ -72,38 +89,60 @@ def choose_item():
     return None
 
 def run_once():
+    start_time = datetime.now()
+    logger.info(f"[Bot] Starting execution at {start_time}")
+    
     try:
-        print("[Bot] Selecting item…")
+        # Content selection
         item = choose_item()
         if not item:
-            print("[Bot] No suitable content found today.")
+            logger.warning("[Bot] No suitable content found today.")
             return
 
+        # Image handling with better error tracking
         image_path = "image.jpg"
-        ok = False
+        image_success = False
+        
         if item.get("image_url"):
-            ok = download_image_to_path(item["image_url"], image_path)
-        if not ok:
-            ok = download_image_to_path(None, image_path, query=item.get("fallback_query", "health"))
-        if not ok:
+            image_success = download_image_to_path(item["image_url"], image_path)
+            if image_success:
+                logger.info(f"[Bot] Downloaded image from: {item['image_url']}")
+        
+        if not image_success and item.get("fallback_query"):
+            image_success = download_image_to_path(None, image_path, query=item["fallback_query"])
+            if image_success:
+                logger.info(f"[Bot] Downloaded fallback image for query: {item['fallback_query']}")
+        
+        if not image_success:
             generate_fallback_image(item.get("title", "Health & Longevity"), image_path)
+            logger.info("[Bot] Generated fallback text image")
 
         if DRY_RUN:
-            print(f"[Dry Run] Caption: {item['caption']}")
-            print(f"[Dry Run] Image path: {image_path}")
-            print(f"[Dry Run] Would post to: Twitter/X, Instagram, Facebook, Bluesky")
-        else:
-            print("[Bot] Posting to Twitter/X…")
-            post_to_twitter(item["caption"], image_path)
-            print("[Bot] Posting to Instagram…")
-            post_to_instagram(item["caption"], image_path)
-            print("[Bot] Posting to Facebook…")
-            post_to_facebook(item["caption"], image_path)
-            print("[Bot] Posting to Bluesky…")
-            post_to_bluesky(item["caption"], image_path)
+            logger.info(f"[Dry Run] Caption: {item['caption']}")
+            logger.info(f"[Dry Run] Image path: {image_path}")
+            logger.info("[Dry Run] Would post to: Twitter/X, Instagram, Facebook, Bluesky")
+            return
 
-        print("[Bot] Done.")
+        # Post to platforms with individual error handling
+        platforms = [
+            ("Twitter/X", post_to_twitter),
+            ("Instagram", post_to_instagram),
+            ("Facebook", post_to_facebook),
+            ("Bluesky", post_to_bluesky)
+        ]
+        
+        success_count = 0
+        for platform_name, post_func in platforms:
+            try:
+                logger.info(f"[Bot] Posting to {platform_name}...")
+                post_func(item["caption"], image_path)
+                success_count += 1
+            except Exception as e:
+                logger.error(f"[Bot] Failed to post to {platform_name}: {str(e)}")
+
+        execution_time = (datetime.now() - start_time).total_seconds()
+        logger.info(f"[Bot] Completed in {execution_time:.2f}s. Posted to {success_count}/4 platforms.")
 
     except Exception as e:
-        print("[Bot][ERROR]", e)
-        traceback.print_exc()
+        logger.error(f"[Bot] Critical error: {str(e)}")
+        logger.error(traceback.format_exc())

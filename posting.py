@@ -1,4 +1,5 @@
 # posting.py
+
 # This file includes full API posting functions for Twitter/X, Instagram, Facebook, and Bluesky.
 # Ensure environment variables are set and required packages are installed (tweepy, requests, atproto).
 # For testing without posting, set DRY_RUN=true in your environment variables.
@@ -17,14 +18,27 @@ def post_to_twitter(caption: str, image_path: str):
         print(f"[Dry Run] Would post to Twitter/X with caption: {caption}")
         return
     try:
+        # Initialize both v1.1 (for media) and v2 (for posting)
         auth = tweepy.OAuth1UserHandler(
             os.getenv("TWITTER_API_KEY"),
             os.getenv("TWITTER_API_SECRET"),
             os.getenv("TWITTER_ACCESS_TOKEN"),
             os.getenv("TWITTER_ACCESS_SECRET")
         )
-        api = tweepy.API(auth)
-        api.update_status_with_media(status=caption, filename=image_path)
+        api_v1 = tweepy.API(auth)
+        
+        # Upload media using v1.1
+        media = api_v1.media_upload(filename=image_path)
+        
+        # Post using v2
+        client = tweepy.Client(
+            consumer_key=os.getenv("TWITTER_API_KEY"),
+            consumer_secret=os.getenv("TWITTER_API_SECRET"),
+            access_token=os.getenv("TWITTER_ACCESS_TOKEN"),
+            access_token_secret=os.getenv("TWITTER_ACCESS_SECRET")
+        )
+        
+        client.create_tweet(text=caption, media_ids=[media.media_id])
         print("[Twitter/X] Posted successfully.")
     except Exception as e:
         print("[Twitter/X][ERROR]", e)
@@ -36,8 +50,8 @@ def post_to_instagram(caption: str, image_path: str):
         print(f"[Dry Run] Would post to Instagram with caption: {caption}")
         return
     try:
-        access_token = os.getenv("IG_ACCESS_TOKEN")
-        ig_user_id = os.getenv("IG_USER_ID")
+        access_token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
+        ig_user_id = os.getenv("INSTAGRAM_ACCOUNT_ID")
         if not access_token or not ig_user_id:
             raise ValueError("Instagram credentials not set in environment variables.")
 
@@ -64,8 +78,8 @@ def post_to_facebook(caption: str, image_path: str):
         print(f"[Dry Run] Would post to Facebook with caption: {caption}")
         return
     try:
-        page_access_token = os.getenv("FB_PAGE_ACCESS_TOKEN")
-        page_id = os.getenv("FB_PAGE_ID")
+        page_access_token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") 
+        page_id = os.getenv("FACEBOOK_PAGE_ID")
         if not page_access_token or not page_id:
             raise ValueError("Facebook credentials not set in environment variables.")
 
@@ -86,8 +100,8 @@ def post_to_bluesky(caption: str, image_path: str):
         print(f"[Dry Run] Would post to Bluesky with caption: {caption}")
         return
     try:
-        handle = os.getenv("BSKY_HANDLE")
-        password = os.getenv("BSKY_PASSWORD")
+        handle = os.getenv("BLUESKY_HANDLE")
+        password = os.getenv("BLUESKY_PASSWORD")
         if not handle or not password:
             raise ValueError("Bluesky credentials not set in environment variables.")
 
